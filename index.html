@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>三田駅発車時刻</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body { 
+      font-family: 'Noto Sans JP', Arial, sans-serif; 
+      margin: 1em; 
+      background: #f8f9fa;
+      color: #333;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 1.5em;
+      padding: 1em;
+      background: white;
+      border-radius: 1em;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .title { 
+      font-size: 1.8em; 
+      margin-bottom: 0.5em;
+      font-weight: bold;
+      color: #1976d2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5em;
+    }
+    .title-icon {
+      width: 1.2em;
+      height: 1.2em;
+      object-fit: contain;
+    }
+    .current-time {
+      font-size: 1.2em;
+      color: #666;
+      margin-bottom: 0.5em;
+    }
+    .refresh-btn {
+      background: #1976d2;
+      color: white;
+      border: none;
+      padding: 0.5em 1em;
+      border-radius: 0.5em;
+      cursor: pointer;
+      font-size: 0.9em;
+      margin-top: 0.5em;
+    }
+    .refresh-btn:hover {
+      background: #1565c0;
+    }
+    .train-box { 
+      border: 1px solid #ddd; 
+      border-radius: 1em; 
+      margin: 0.8em 0; 
+      padding: 1.2em;
+      background: white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      transition: all 0.3s ease;
+    }
+    .train-box.compact {
+      padding: 0.6em;
+      margin: 0.4em 0;
+    }
+    .train-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .train-left {
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+    .departure-time {
+      font-size: 1.4em;
+      font-weight: bold;
+      margin-bottom: 0.2em;
+    }
+    .departure-time.compact {
+      font-size: 1.2em;
+      color: #888;
+      margin-bottom: 0;
+    }
+    .train-type-dest {
+      font-size: 1.5em;
+      margin-left: 0.5em;
+      font-weight: bold;
+    }
+    .train-type-dest.compact {
+      color: #666;
+      font-size: 1.0em;
+    }
+    .time-remaining {
+      text-align: right;
+      font-weight: bold;
+      min-width: 100px;
+    }
+    .soon { 
+      color: #888; 
+      font-size: 1.2em;
+    }
+    .normal { 
+      color: #d32f2f; 
+      font-size: 1.6em;
+    }
+    .later { 
+      color: #222; 
+      font-size: 1.6em;
+    }
+    .train-icon {
+      width: 24px;
+      height: 24px;
+      margin-right: 0.8em;
+      flex-shrink: 0;
+      object-fit: contain;
+    }
+    .loading {
+      text-align: center;
+      padding: 2em;
+      color: #666;
+    }
+    .error {
+      text-align: center;
+      padding: 2em;
+      color: #d32f2f;
+      background: #ffebee;
+      border-radius: 1em;
+      margin: 1em 0;
+    }
+    .no-trains {
+      text-align: center;
+      padding: 2em;
+      color: #666;
+      background: white;
+      border-radius: 1em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">
+        <img src="icon1.png" alt="Icon1" class="title-icon" onerror="this.style.display='none'">
+        三田駅発車時刻
+        <img src="icon2.png" alt="Icon2" class="title-icon" onerror="this.style.display='none'">
+      </div>
+      <div class="current-time" id="now"></div>
+      <button class="refresh-btn" onclick="loadTrains()">更新</button>
+    </div>
+    <div id="trains">
+      <div class="loading">時刻表を読み込み中...</div>
+    </div>
+  </div>
+
+  <script>
+    // デモ用の時刻表データ（実際のGASのデータに置き換えてください）
+    const demoData = [
+      { '発車時刻': '06:15', '列車の種別': '普通', '行先': '大阪方面' },
+      { '発車時刻': '06:32', '列車の種別': '急行', '行先': '梅田' },
+      { '発車時刻': '06:45', '列車の種別': '普通', '行先': '西宮名塩' },
+      { '発車時刻': '07:05', '列車の種別': '急行', '行先': '梅田' },
+      { '発車時刻': '07:18', '列車の種別': '普通', '行先': '大阪方面' },
+      { '発車時刻': '07:35', '列車の種別': '急行', '行先': '梅田' },
+      { '発車時刻': '07:52', '列車の種別': '普通', '行先': '西宮名塩' },
+      { '発車時刻': '08:10', '列車の種別': '急行', '行先': '梅田' },
+      { '発車時刻': '08:25', '列車の種別': '普通', '行先': '大阪方面' },
+      { '発車時刻': '08:42', '列車の種別': '急行', '行先': '梅田' },
+      { '発車時刻': '09:00', '列車の種別': '普通', '行先': '西宮名塩' },
+      { '発車時刻': '09:18', '列車の種別': '急行', '行先': '梅田' },
+      { '発車時刻': '09:35', '列車の種別': '普通', '行先': '大阪方面' },
+      { '発車時刻': '09:52', '列車の種別': '急行', '行先': '梅田' },
+      { '発車時刻': '10:10', '列車の種別': '普通', '行先': '西宮名塩' }
+    ];
+    
+    // GAS公開URLを設定（実際のURLに置き換えてください）
+    // 例: "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"
+    const SHEET_URL = "https://script.google.com/macros/s/AKfycbwOtUfT__-LqO6pXcz0Ca-3bZ1I1Hw2Ki6DNjsUzDMzp89rkVMRsm0XRLXYYomPVZc/exec";
+    
+    // 残り時間に応じたアイコンを取得
+    function getTrainIcon(remainingMinutes) {
+      if (remainingMinutes < 10) return 'red.png';
+      else if (remainingMinutes < 20) return 'yellow.png';
+      else return 'green.png';
+    }
+    
+    // 現在時刻の表示を更新
+    function updateCurrentTime() {
+      const now = new Date();
+      const week = ["日", "月", "火", "水", "木", "金", "土"];
+      const timeString = `${now.getHours().toString().padStart(2,"0")}:${now.getMinutes().toString().padStart(2,"0")}`;
+      const dayString = `${week[now.getDay()]}曜日`;
+      document.getElementById("now").innerText = `現在時刻: ${timeString} (${dayString})`;
+    }
+    
+    // 曜日に応じてシート名を決定
+    function getSheetName() {
+      const now = new Date();
+      const day = now.getDay();
+      return (day === 0 || day === 6) ? '土曜日・休日' : '平日';
+    }
+    
+    // 時刻表データを読み込んで表示
+    function loadTrains() {
+      updateCurrentTime();
+      
+      // デモモード（GAS URLが設定されていない場合）
+      if (SHEET_URL.includes("★★★")) {
+        console.log("デモモードで動作中");
+        displayTrains(demoData);
+        return;
+      }
+      
+      // 実際のGASからデータを取得
+      const sheetName = getSheetName();
+      const url = `${SHEET_URL}?sheet=${encodeURIComponent(sheetName)}`;
+      
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          displayTrains(data);
+        })
+        .catch(error => {
+          console.error('データの取得に失敗:', error);
+          document.getElementById("trains").innerHTML = 
+            '<div class="error">時刻表データの取得に失敗しました。<br>しばらく時間をおいて再試行してください。</div>';
+        });
+    }
+    
+    // 列車情報を画面に表示
+    function displayTrains(data) {
+      const now = new Date();
+      const trainsContainer = document.getElementById("trains");
+      
+      console.log('現在時刻:', now);
+      console.log('受信データ件数:', data ? data.length : 0);
+      
+      if (!data || data.length === 0) {
+        trainsContainer.innerHTML = '<div class="no-trains">時刻表データがありません</div>';
+        return;
+      }
+      
+      // デバッグ：最初の5件のデータを確認
+      console.log('データサンプル:', data.slice(0, 5));
+      
+      const upcomingTrains = data
+        .map((row, index) => {
+          // 発車時刻の解析
+          const timeStr = row['発車時刻'];
+          
+          // デバッグ情報（最初の3件のみ）
+          if (index < 3) {
+            console.log(`[${index}] 元データ:`, row);
+            console.log(`[${index}] 発車時刻:`, timeStr, 'タイプ:', typeof timeStr);
+          }
+          
+          if (!timeStr) {
+            if (index < 3) console.log(`[${index}] 発車時刻が空`);
+            return null;
+          }
+          
+          // 時刻データの正規化処理
+          let timeString;
+          
+          if (typeof timeStr === 'string' && timeStr.includes('T')) {
+            // ISO日付形式の場合（例：'1899-12-30T12:58:00.000Z'）
+            const dateObj = new Date(timeStr);
+            const hours = dateObj.getUTCHours();
+            const minutes = dateObj.getUTCMinutes();
+            timeString = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}`;
+          } else {
+            // その他の形式の処理
+            let workingString = timeStr.toString();
+            
+            if (workingString.includes(':')) {
+              // 既に HH:MM 形式（HH:MM:SS も含む）
+              const parts = workingString.split(':');
+              timeString = `${parts[0].padStart(2,'0')}:${parts[1].padStart(2,'0')}`;
+            } else if (workingString.match(/^\d{3,4}$/)) {
+              // HHMM形式（例：815 → 8:15, 1030 → 10:30）
+              if (workingString.length === 3) {
+                timeString = workingString.slice(0,1) + ':' + workingString.slice(1);
+              } else if (workingString.length === 4) {
+                timeString = workingString.slice(0,2) + ':' + workingString.slice(2);
+              }
+            } else if (workingString.includes('.')) {
+              // Excel時間形式の場合（0.34375 = 8:15など）
+              const totalMinutes = Math.round(parseFloat(workingString) * 24 * 60);
+              const hours = Math.floor(totalMinutes / 60);
+              const minutes = totalMinutes % 60;
+              timeString = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}`;
+            } else {
+              timeString = workingString;
+            }
+          }
+          
+          const timeParts = timeString.split(':');
+          if (timeParts.length !== 2) {
+            if (index < 3) console.log(`[${index}] 時刻フォーマットエラー:`, timeString);
+            return null;
+          }
+          
+          const [h, m] = timeParts.map(Number);
+          if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) {
+            if (index < 3) console.log(`[${index}] 時刻値エラー: ${h}:${m}`);
+            return null;
+          }
+          
+          // 発車時刻のDateオブジェクトを作成
+          let departureTime = new Date();
+          departureTime.setHours(h, m, 0, 0);
+          
+          // 翌日の便の場合（深夜を跨ぐ場合）
+          if (departureTime < now) {
+            departureTime.setDate(departureTime.getDate() + 1);
+          }
+          
+          // 残り時間を計算（分単位）
+          const diffMinutes = Math.floor((departureTime - now) / 60000);
+          
+          if (index < 3) {
+            console.log(`[${index}] 処理結果: ${timeString} → ${h}:${m}, 残り${diffMinutes}分`);
+          }
+          
+          // 過去5分以内までは表示、4時間以上先は除外
+          if (diffMinutes < -5 || diffMinutes > 240) return null;
+          
+          // 表示クラスを決定
+          let timeClass = "";
+          if (diffMinutes < 10) timeClass = "soon";        // 10分未満: グレー
+          else if (diffMinutes < 20) timeClass = "normal";  // 10-19分: 赤
+          else timeClass = "later";                         // 20分以上: 黒
+          
+          return {
+            time: timeString,
+            type: row['列車の種別'] || '普通',
+            destination: row['行先'] || '',
+            remainingMinutes: diffMinutes,
+            timeClass: timeClass,
+            departureTime: departureTime,
+            originalData: row // デバッグ用
+          };
+        })
+        .filter(train => train !== null)
+        .sort((a, b) => a.departureTime - b.departureTime)
+        .slice(0, 5); // 最大5件まで表示（短い順）
+      
+      console.log('有効な列車データ件数:', upcomingTrains.length);
+      if (upcomingTrains.length > 0) {
+        console.log('表示予定の列車:', upcomingTrains.slice(0, 3));
+      }
+      
+      if (upcomingTrains.length === 0) {
+        // デバッグ情報を含めたメッセージ
+        trainsContainer.innerHTML = `
+          <div class="no-trains">
+            現在表示可能な発車予定がありません<br>
+            <small style="color: #999; margin-top: 10px; display: block;">
+              データ件数: ${data.length}件<br>
+              現在時刻: ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}<br>
+              ※開発者ツールのコンソールで詳細を確認できます
+            </small>
+          </div>
+        `;
+        return;
+      }
+      
+      // HTML生成
+      const trainsHtml = upcomingTrains.map(train => {
+        const isCompact = train.remainingMinutes < 10;
+        const iconSrc = getTrainIcon(train.remainingMinutes);
+        const compactClass = isCompact ? 'compact' : '';
+        
+        return `
+          <div class="train-box ${compactClass}">
+            <div class="train-info">
+              <div class="train-left">
+                <img src="${iconSrc}" alt="Train Status" class="train-icon" onerror="this.style.display='none'">
+                <span class="departure-time ${compactClass}">${train.time}</span>
+                <span class="train-type-dest ${compactClass}">${train.type} ${train.destination}</span>
+              </div>
+              <div class="time-remaining ${train.timeClass}">
+                あと${train.remainingMinutes}分
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      trainsContainer.innerHTML = trainsHtml;
+    }
+    
+    // 初期読み込み
+    loadTrains();
+    
+    // 1分ごとに自動更新
+    setInterval(() => {
+      loadTrains();
+    }, 60000);
+  </script>
+</body>
+</html>
