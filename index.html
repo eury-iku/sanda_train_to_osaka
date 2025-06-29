@@ -142,6 +142,36 @@
       background: white;
       border-radius: 1em;
     }
+    /* フッターのスタイル */
+    .footer {
+      text-align: center;
+      margin-top: 2em;
+      padding: 1.2em;
+      font-size: 0.85em;
+      color: #777;
+      background: white;
+      border-top: 1px solid #eee;
+      border-radius: 1.2em 1.2em 0 0;
+      box-shadow: 0 -3px 8px rgba(0,0,0,0.05);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .footer a {
+      color: #1976d2;
+      text-decoration: none;
+      font-weight: bold;
+      transition: color 0.2s ease;
+    }
+    .footer a:hover {
+      color: #1565c0;
+      text-decoration: underline;
+    }
+    /* 特急の赤色 */
+    .express-red {
+      color: #d32f2f;
+      font-weight: bold;
+      text-shadow: 0 0 3px rgba(211, 47, 47, 0.3);
+    }
   </style>
 </head>
 <body>
@@ -158,6 +188,14 @@
     <div id="trains">
       <div class="loading">時刻表を読み込み中...</div>
     </div>
+    <div class="footer">
+        <p>
+            <a href="https://trafficinfo.westjr.co.jp/kinki.html" target="_blank">
+                近畿エリア 運行情報：JR西日本列車運行情報
+            </a>
+        </p>
+    </div>
+
   </div>
 
   <script>
@@ -182,7 +220,7 @@
     
     // GAS公開URLを設定（実際のURLに置き換えてください）
     // 例: "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"
-    const SHEET_URL = "https://script.google.com/macros/s/AKfycbwOtUfT__-LqO6pXcz0Ca-3bZ1I1Hw2Ki6DNjsUzDMzp89rkVMRsm0XRLXYYomPVZc/exec";
+    const SHEET_URL = "https://script.google.com/macros/s/AKfycbyqZ3-_NdbP1EweVSfQv_tH4uhFjvLWdSb-T9IUeFnGwu7WmHZ3FkgmP1EF8SmFBmIo/exec";
     
     // 残り時間に応じたアイコンを取得
     function getTrainIcon(remainingMinutes) {
@@ -382,6 +420,7 @@
         const isCompact = train.remainingMinutes < 10;
         const iconSrc = getTrainIcon(train.remainingMinutes);
         const compactClass = isCompact ? 'compact' : '';
+        const expressClass = train.type === '特急' ? 'express-red' : ''; // 特急の場合にクラス追加
         
         return `
           <div class="train-box ${compactClass}">
@@ -389,7 +428,7 @@
               <div class="train-left">
                 <img src="${iconSrc}" alt="Train Status" class="train-icon" onerror="this.style.display='none'">
                 <span class="departure-time ${compactClass}">${train.time}</span>
-                <span class="train-type-dest ${compactClass}">${train.type} ${train.destination}</span>
+                <span class="train-type-dest ${compactClass} ${expressClass}">${train.type} ${train.destination}</span>
               </div>
               <div class="time-remaining ${train.timeClass}">
                 あと${train.remainingMinutes}分
